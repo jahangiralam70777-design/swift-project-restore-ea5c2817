@@ -254,10 +254,14 @@ export function LiveChatWidget() {
   });
 
   const startMutation = useMutation({
-    mutationFn: async () => startConv({ data: {} }),
+    mutationFn: async (vars: { subject?: string; first_message?: string }) =>
+      startConv({ data: vars }),
     onSuccess: (conv) => {
       qc.invalidateQueries({ queryKey: ["chat", "my-conversations"] });
+      qc.invalidateQueries({ queryKey: ["chat", "messages", conv.id] });
       setActiveConvId(conv.id);
+      setNewSubject("");
+      setNewMessage("");
       setView("thread");
     },
   });
