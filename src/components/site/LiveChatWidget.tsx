@@ -117,7 +117,9 @@ export function LiveChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [view, setView] = useState<"picker" | "thread">("picker");
+  const [view, setView] = useState<"picker" | "thread" | "compose">("picker");
+  const [newSubject, setNewSubject] = useState("");
+  const [newMessage, setNewMessage] = useState("");
   const [soundOn, setSoundOn] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem(SOUND_KEY) !== "0";
@@ -168,6 +170,11 @@ export function LiveChatWidget() {
     auto_assignment_enabled: false,
     attachment_max_mb: 10,
     rate_limit_per_minute: 20,
+    button_text: "Live Chat",
+    tooltip_text: "Chat with our team",
+    icon_name: "message-circle",
+    show_label: true,
+    show_launcher: true,
   }) as ChatSettings;
 
   const convsQ = useQuery({
