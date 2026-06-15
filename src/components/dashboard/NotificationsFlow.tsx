@@ -227,6 +227,8 @@ export function NotificationsFlow() {
         </div>
       </div>
 
+      <BroadcastsInbox />
+
       {/* Filter bar */}
       <div className="glass shadow-card-soft rounded-2xl p-3">
         <div className="flex flex-wrap items-center gap-2">
