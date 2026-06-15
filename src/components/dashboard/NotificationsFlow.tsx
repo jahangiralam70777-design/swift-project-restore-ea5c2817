@@ -21,6 +21,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useMyNotifications, type MyNotification } from "@/hooks/use-my-notifications";
+import { useMyBroadcasts } from "@/hooks/use-my-broadcasts";
+import type { MyBroadcast } from "@/lib/broadcasts.functions";
 
 const TYPE_ICON: Record<MyNotification["type"], typeof Bell> = {
   announcement: Megaphone,
