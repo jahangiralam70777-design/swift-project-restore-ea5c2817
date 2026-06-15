@@ -29,6 +29,7 @@ const TYPE_ICON: Record<MyNotification["type"], typeof Bell> = {
   push: Smartphone,
   email: Mail,
   in_app: MessageSquare,
+  broadcast: Megaphone,
 };
 
 const TYPE_TINT: Record<MyNotification["type"], string> = {
@@ -36,6 +37,7 @@ const TYPE_TINT: Record<MyNotification["type"], string> = {
   push: "from-sky-400/30 to-blue-500/10 text-sky-300",
   email: "from-cyan-400/30 to-sky-500/10 text-cyan-300",
   in_app: "from-violet-500/30 to-indigo-500/10 text-violet-300",
+  broadcast: "from-amber-500/30 to-rose-500/10 text-amber-300",
 };
 
 const TYPE_LABEL: Record<MyNotification["type"], string> = {
@@ -43,6 +45,7 @@ const TYPE_LABEL: Record<MyNotification["type"], string> = {
   push: "Push",
   email: "Email",
   in_app: "In-app",
+  broadcast: "Broadcast",
 };
 
 const FILTERS = ["All", "Announcement", "In-app", "Push", "Email"] as const;

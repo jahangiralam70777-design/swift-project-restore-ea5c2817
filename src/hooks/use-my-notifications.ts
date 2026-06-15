@@ -14,7 +14,7 @@ export type MyNotification = {
   title: string;
   body: string;
   link: string | null;
-  type: "announcement" | "push" | "email" | "in_app";
+  type: "announcement" | "push" | "email" | "in_app" | "broadcast";
   priority: "low" | "medium" | "high" | "critical";
   sent_at: string | null;
   created_at: string;
