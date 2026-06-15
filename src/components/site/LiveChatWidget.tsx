@@ -434,6 +434,76 @@ export function LiveChatWidget() {
             </div>
           )}
 
+          {/* ───────── COMPOSE VIEW ───────── */}
+          {view === "compose" && (
+            <div className="flex flex-1 flex-col overflow-hidden bg-background">
+              <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+                <button
+                  onClick={() => setView("picker")}
+                  className="rounded-md p-1 text-foreground hover:bg-muted"
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <p className="text-sm font-semibold text-foreground">New conversation</p>
+              </div>
+              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Subject <span className="font-normal normal-case text-muted-foreground/70">(optional)</span>
+                  </label>
+                  <input
+                    value={newSubject}
+                    onChange={(e) => setNewSubject(e.target.value)}
+                    placeholder="e.g. Payment issue"
+                    maxLength={120}
+                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Message
+                  </label>
+                  <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="How can we help?"
+                    rows={6}
+                    maxLength={4000}
+                    className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                {startMutation.error && (
+                  <p className="text-[11px] text-destructive">
+                    {(startMutation.error as Error).message}
+                  </p>
+                )}
+              </div>
+              <div className="border-t border-border bg-card px-3 py-3">
+                <button
+                  onClick={() => {
+                    const msg = newMessage.trim();
+                    if (!msg || startMutation.isPending) return;
+                    startMutation.mutate({
+                      subject: newSubject.trim() || undefined,
+                      first_message: msg,
+                    });
+                  }}
+                  disabled={!newMessage.trim() || startMutation.isPending}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow disabled:opacity-60"
+                  style={themeStyle}
+                >
+                  {startMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Send message
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ───────── THREAD VIEW ───────── */}
           {view === "thread" && (
             <>
