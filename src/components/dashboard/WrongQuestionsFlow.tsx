@@ -617,7 +617,7 @@ export function WrongQuestionsFlow() {
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                                 <button
-                                  onClick={() => navigate({ to: "/mcq-practice" })}
+                                  onClick={() => startReview([m.id])}
                                   className="bg-cta-gradient inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-white shadow-glow"
                                   title="Review in Practice"
                                 >
