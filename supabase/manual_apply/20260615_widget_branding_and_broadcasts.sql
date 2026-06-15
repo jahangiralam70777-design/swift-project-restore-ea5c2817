@@ -18,6 +18,69 @@ alter table public.live_chat_settings
   add column if not exists show_launcher boolean not null default true;
 
 -- ---------------------------------------------------------------------
+-- 1b. Notification schema hardening for per-user fan-out delivery
+-- ---------------------------------------------------------------------
+do $$ begin
+  if exists (select 1 from pg_type where typname = 'notification_type' and typnamespace = 'public'::regnamespace) then
+    alter type public.notification_type add value if not exists 'broadcast';
+  end if;
+exception when others then null; end $$;
+
+do $$ begin
+  if exists (select 1 from pg_type where typname = 'notification_status' and typnamespace = 'public'::regnamespace) then
+    alter type public.notification_status add value if not exists 'unread';
+    alter type public.notification_status add value if not exists 'read';
+  end if;
+exception when others then null; end $$;
+
+alter table public.notifications
+  add column if not exists user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists message text not null default '',
+  add column if not exists recipients_count integer not null default 0,
+  add column if not exists delivered_count integer not null default 0,
+  add column if not exists read_count integer not null default 0,
+  add column if not exists delivered_at timestamptz,
+  add column if not exists read_at timestamptz,
+  add column if not exists source_broadcast_id uuid,
+  add column if not exists delivery_group_id uuid;
+
+update public.notifications
+   set message = body
+ where coalesce(message, '') = '' and coalesce(body, '') <> '';
+
+create index if not exists idx_notifications_user_status_created
+  on public.notifications(user_id, status, created_at desc);
+create unique index if not exists idx_notifications_broadcast_user_once
+  on public.notifications(source_broadcast_id, user_id)
+  where source_broadcast_id is not null and user_id is not null;
+create unique index if not exists idx_notifications_group_user_once
+  on public.notifications(delivery_group_id, user_id)
+  where delivery_group_id is not null and user_id is not null;
+
+grant select, insert, update, delete on public.notifications to authenticated;
+grant all on public.notifications to service_role;
+alter table public.notifications enable row level security;
+
+drop policy if exists notif_sent_read on public.notifications;
+drop policy if exists notifications_select_sent on public.notifications;
+drop policy if exists notifications_public_read on public.notifications;
+drop policy if exists notifications_owner_select on public.notifications;
+create policy notifications_owner_select on public.notifications for select to authenticated
+  using (user_id = auth.uid() or public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
+
+drop policy if exists notifications_owner_update on public.notifications;
+create policy notifications_owner_update on public.notifications for update to authenticated
+  using (user_id = auth.uid() or public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'))
+  with check (user_id = auth.uid() or public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
+
+drop policy if exists notif_admin_write on public.notifications;
+drop policy if exists notifications_write_admin on public.notifications;
+drop policy if exists notifications_admin_all on public.notifications;
+create policy notifications_admin_all on public.notifications for all to authenticated
+  using (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'))
+  with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
+
+-- ---------------------------------------------------------------------
 -- 2. Broadcast enums
 -- ---------------------------------------------------------------------
 do $$ begin
