@@ -166,7 +166,7 @@ create policy bt_write on public.broadcast_templates for all to authenticated
   with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
 
 -- ---------------------------------------------------------------------
--- 8. Realtime publication
+-- 8. Realtime publication (broadcasts + downstream delivery channels)
 -- ---------------------------------------------------------------------
 do $$ begin
   alter publication supabase_realtime add table public.broadcasts;
@@ -176,5 +176,29 @@ do $$ begin
   alter publication supabase_realtime add table public.broadcast_recipients;
 exception when duplicate_object then null; when others then null; end $$;
 
-alter table public.broadcasts            replica identity full;
-alter table public.broadcast_recipients  replica identity full;
+do $$ begin
+  alter publication supabase_realtime add table public.notifications;
+exception when duplicate_object then null; when others then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.notification_reads;
+exception when duplicate_object then null; when others then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.live_chat_messages;
+exception when duplicate_object then null; when others then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.live_chat_conversations;
+exception when duplicate_object then null; when others then null; end $$;
+
+alter table public.broadcasts             replica identity full;
+alter table public.broadcast_recipients   replica identity full;
+
+-- ---------------------------------------------------------------------
+-- 9. Helpful unique index for "Admin Broadcasts" conversation lookup
+--    (non-unique safety index; the server picks the existing row)
+-- ---------------------------------------------------------------------
+create index if not exists idx_lcc_user_subject
+  on public.live_chat_conversations(user_id, subject);
+
