@@ -208,7 +208,7 @@ export function LiveChatWidget() {
             );
           }
           qc.invalidateQueries({ queryKey: ["chat", "my-conversations"] });
-          if (m.sender_type === "staff") {
+          if (m.sender_type === "staff" || m.sender_type === "system") {
             if (!open || view !== "thread" || m.conversation_id !== activeConvId) {
               playPing();
             }

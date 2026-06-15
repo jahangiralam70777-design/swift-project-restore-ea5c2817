@@ -18,6 +18,88 @@ alter table public.live_chat_settings
   add column if not exists show_launcher boolean not null default true;
 
 -- ---------------------------------------------------------------------
+-- 1b. Notification schema hardening for per-user fan-out delivery
+-- ---------------------------------------------------------------------
+do $$ begin
+  if exists (select 1 from pg_type where typname = 'notification_type' and typnamespace = 'public'::regnamespace) then
+    alter type public.notification_type add value if not exists 'broadcast';
+  end if;
+exception when others then null; end $$;
+
+do $$ begin
+  if exists (select 1 from pg_type where typname = 'notification_status' and typnamespace = 'public'::regnamespace) then
+    alter type public.notification_status add value if not exists 'unread';
+    alter type public.notification_status add value if not exists 'read';
+  end if;
+exception when others then null; end $$;
+
+alter table public.notifications
+  add column if not exists user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists message text not null default '',
+  add column if not exists recipients_count integer not null default 0,
+  add column if not exists delivered_count integer not null default 0,
+  add column if not exists read_count integer not null default 0,
+  add column if not exists delivered_at timestamptz,
+  add column if not exists read_at timestamptz,
+  add column if not exists source_broadcast_id uuid,
+  add column if not exists delivery_group_id uuid;
+
+-- Older installs used text columns with CHECK constraints instead of enums.
+-- Drop the old checks so the production fan-out statuses/types are accepted.
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications drop constraint if exists notifications_status_check;
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'notifications' and column_name = 'type' and data_type = 'text'
+  ) then
+    alter table public.notifications add constraint notifications_type_check
+      check (type in ('announcement','push','email','in_app','broadcast'));
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'notifications' and column_name = 'status' and data_type = 'text'
+  ) then
+    alter table public.notifications add constraint notifications_status_check
+      check (status in ('draft','scheduled','sent','failed','paused','unread','read'));
+  end if;
+end $$;
+
+update public.notifications
+   set message = body
+ where coalesce(message, '') = '' and coalesce(body, '') <> '';
+
+create index if not exists idx_notifications_user_status_created
+  on public.notifications(user_id, status, created_at desc);
+create unique index if not exists idx_notifications_broadcast_user_once
+  on public.notifications(source_broadcast_id, user_id);
+create unique index if not exists idx_notifications_group_user_once
+  on public.notifications(delivery_group_id, user_id);
+
+grant select, insert, update, delete on public.notifications to authenticated;
+grant all on public.notifications to service_role;
+alter table public.notifications enable row level security;
+
+drop policy if exists notif_sent_read on public.notifications;
+drop policy if exists notifications_select_sent on public.notifications;
+drop policy if exists notifications_public_read on public.notifications;
+drop policy if exists notifications_owner_select on public.notifications;
+create policy notifications_owner_select on public.notifications for select to authenticated
+  using (user_id = auth.uid() or public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
+
+drop policy if exists notifications_owner_update on public.notifications;
+create policy notifications_owner_update on public.notifications for update to authenticated
+  using (user_id = auth.uid() or public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'))
+  with check (user_id = auth.uid() or public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
+
+drop policy if exists notif_admin_write on public.notifications;
+drop policy if exists notifications_write_admin on public.notifications;
+drop policy if exists notifications_admin_all on public.notifications;
+create policy notifications_admin_all on public.notifications for all to authenticated
+  using (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'))
+  with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
+
+-- ---------------------------------------------------------------------
 -- 2. Broadcast enums
 -- ---------------------------------------------------------------------
 do $$ begin

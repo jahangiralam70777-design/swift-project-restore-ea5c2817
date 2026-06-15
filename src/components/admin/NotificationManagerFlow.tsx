@@ -62,9 +62,9 @@ type Notification = {
   title: string;
   body: string;
   link: string | null;
-  type: "announcement" | "push" | "email" | "in_app";
+  type: "announcement" | "push" | "email" | "in_app" | "broadcast";
   priority: "low" | "medium" | "high" | "critical";
-  status: "draft" | "scheduled" | "sent" | "failed" | "paused";
+  status: "draft" | "scheduled" | "sent" | "failed" | "paused" | "unread" | "read";
   audience: "all" | "level" | "subject" | "role" | "users";
   audience_level: string | null;
   audience_subject_id: string | null;
@@ -90,6 +90,7 @@ const TYPE_ICON = {
   push: Smartphone,
   email: Mail,
   in_app: MessageSquare,
+  broadcast: Megaphone,
 } as const;
 
 export function NotificationManagerFlow() {
