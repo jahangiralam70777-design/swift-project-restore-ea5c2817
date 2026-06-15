@@ -593,22 +593,43 @@ export function LiveChatWidget() {
         </div>
       )}
 
-      <button
-        onClick={() => {
-          setOpen((o) => !o);
-          if (!open) setView("picker");
-        }}
-        className="relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-transform hover:scale-105"
-        style={themeStyle}
-        aria-label={open ? "Close chat" : "Open chat"}
-      >
-        {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
-        {!open && totalUnread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white shadow ring-2 ring-background">
-            {totalUnread > 9 ? "9+" : totalUnread}
-          </span>
-        )}
-      </button>
+      {settings.show_launcher !== false && (
+        <button
+          onClick={() => {
+            setOpen((o) => !o);
+            if (!open) setView("picker");
+          }}
+          title={settings.tooltip_text || "Chat with our team"}
+          aria-label={open ? "Close chat" : settings.button_text || "Live Chat"}
+          className={`relative flex items-center gap-2 rounded-full font-semibold text-white shadow-xl ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+            open || settings.show_label === false
+              ? "h-14 w-14 justify-center"
+              : "h-12 px-5"
+          }`}
+          style={themeStyle}
+        >
+          {(() => {
+            if (open) return <X className="h-6 w-6" />;
+            const Icon = LAUNCHER_ICONS[settings.icon_name] ?? MessageCircle;
+            const showLabel = settings.show_label !== false;
+            return (
+              <>
+                <Icon className={showLabel ? "h-5 w-5" : "h-6 w-6"} />
+                {showLabel && (
+                  <span className="hidden text-sm leading-none tracking-wide sm:inline">
+                    {settings.button_text || "Live Chat"}
+                  </span>
+                )}
+              </>
+            );
+          })()}
+          {!open && totalUnread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white shadow ring-2 ring-background">
+              {totalUnread > 9 ? "9+" : totalUnread}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }
