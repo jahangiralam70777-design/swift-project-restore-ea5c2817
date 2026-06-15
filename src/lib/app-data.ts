@@ -25,7 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type AppRole = "student" | "admin" | "super_admin";
+export type AppRole = "student" | "admin" | "super_admin" | "moderator";
 
 export type NavItem = {
   title: string;
@@ -162,13 +162,13 @@ export function getRouteTitle(pathname: string) {
 
 export function routeForAction(label: string, role: AppRole = "student") {
   const normalized = label.toLowerCase().replace(/\s+/g, " ").trim();
-  const items = role === "admin" ? adminNavItems : studentNavItems;
+  const items = role === "admin" || role === "super_admin" || role === "moderator" ? adminNavItems : studentNavItems;
   const direct = items.find((item) =>
     [item.title.toLowerCase(), ...(item.keywords ?? [])].some((key) => normalized.includes(key)),
   );
   if (direct) return direct.to;
   if (normalized.includes("login") || normalized.includes("sign in"))
-    return role === "admin" ? "/admin/login" : "/login";
+    return role === "admin" || role === "super_admin" || role === "moderator" ? "/admin/login" : "/login";
   if (
     normalized.includes("register") ||
     normalized.includes("sign up") ||
