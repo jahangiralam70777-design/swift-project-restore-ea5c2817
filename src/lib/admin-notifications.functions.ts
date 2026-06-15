@@ -4,11 +4,43 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertPermission } from "@/lib/admin-permissions";
 
 import { noInput } from "@/lib/validate";
-const typeEnum = z.enum(["announcement", "push", "email", "in_app"]);
+const typeEnum = z.enum(["announcement", "push", "email", "in_app", "broadcast"]);
 const priorityEnum = z.enum(["low", "medium", "high", "critical"]);
-const statusEnum = z.enum(["draft", "scheduled", "sent", "failed", "paused"]);
+const statusEnum = z.enum(["draft", "scheduled", "sent", "failed", "paused", "unread", "read"]);
 const audienceEnum = z.enum(["all", "level", "subject", "role", "users"]);
 const roleEnum = z.enum(["admin", "moderator", "student"]);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const asAny = (x: unknown) => x as any;
+
+function chunks<T>(rows: T[], size = 500) {
+  const out: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
+  return out;
+}
+
+async function resolveNotificationRecipients(supabaseAdmin: any, n: any): Promise<string[]> {
+  if (n.audience === "users") return Array.from(new Set((n.audience_user_ids ?? []).filter(Boolean)));
+  if (n.audience === "role" && n.audience_role) {
+    const { data, error } = await asAny(supabaseAdmin).from("user_roles").select("user_id").eq("role", n.audience_role);
+    if (error) throw new Error(error.message);
+    return Array.from(new Set((data ?? []).map((r: any) => r.user_id as string)));
+  }
+  let q = asAny(supabaseAdmin).from("profiles").select("id");
+  if (n.audience === "level" && n.audience_level) q = q.eq("level", n.audience_level);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  const ids = Array.from(new Set((data ?? []).map((r: any) => r.id as string)));
+  const { data: roles, error: rErr } = await asAny(supabaseAdmin).from("user_roles").select("user_id,role").in("user_id", ids);
+  if (rErr) throw new Error(rErr.message);
+  const byUser = new Map<string, Set<string>>();
+  for (const r of roles ?? []) {
+    const set = byUser.get(r.user_id) ?? new Set<string>();
+    set.add(r.role);
+    byUser.set(r.user_id, set);
+  }
+  return ids.filter((id) => byUser.get(id)?.has("student") && !byUser.get(id)?.has("admin") && !byUser.get(id)?.has("moderator") && !byUser.get(id)?.has("super_admin"));
+}
 
 // ---------- Admin: list ----------
 const listInput = z.object({
@@ -29,6 +61,7 @@ export const adminListNotifications = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("notifications")
       .select("*", { count: "exact" })
+      .is("user_id", null)
       .order("created_at", { ascending: false })
       .range(from, to);
     if (data.status) q = q.eq("status", data.status);
@@ -46,14 +79,15 @@ export const adminNotificationStats = createServerFn({ method: "GET" })
     await assertPermission(context.supabase, context.userId, "manage_content");
     const sb = context.supabase;
     const [total, sent, scheduled, draft, failed] = await Promise.all([
-      sb.from("notifications").select("id", { count: "exact", head: true }),
-      sb.from("notifications").select("id", { count: "exact", head: true }).eq("status", "sent"),
+      sb.from("notifications").select("id", { count: "exact", head: true }).is("user_id", null),
+      sb.from("notifications").select("id", { count: "exact", head: true }).is("user_id", null).eq("status", "sent"),
       sb
         .from("notifications")
         .select("id", { count: "exact", head: true })
+        .is("user_id", null)
         .eq("status", "scheduled"),
-      sb.from("notifications").select("id", { count: "exact", head: true }).eq("status", "draft"),
-      sb.from("notifications").select("id", { count: "exact", head: true }).eq("status", "failed"),
+      sb.from("notifications").select("id", { count: "exact", head: true }).is("user_id", null).eq("status", "draft"),
+      sb.from("notifications").select("id", { count: "exact", head: true }).is("user_id", null).eq("status", "failed"),
     ]);
     return {
       total: total.count ?? 0,
@@ -122,36 +156,43 @@ export const adminSendNotification = createServerFn({ method: "POST" })
   .inputValidator((i: { id: string }) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     await assertPermission(context.supabase, context.userId, "manage_content");
-    const sb = context.supabase;
-    // Estimate delivered_count from audience
-    const { data: n, error } = await sb
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: n, error } = await asAny(supabaseAdmin)
       .from("notifications")
       .select("*")
       .eq("id", data.id)
+      .is("user_id", null)
       .single();
     if (error) throw error;
-    let delivered = 0;
-    if (n.audience === "all") {
-      const { count } = await sb.from("profiles").select("id", { count: "exact", head: true });
-      delivered = count ?? 0;
-    } else if (n.audience === "level" && n.audience_level) {
-      const { count } = await sb
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("level", n.audience_level);
-      delivered = count ?? 0;
-    } else if (n.audience === "role" && n.audience_role) {
-      const { count } = await sb
-        .from("user_roles")
-        .select("user_id", { count: "exact", head: true })
-        .eq("role", n.audience_role as "admin" | "moderator" | "student" | "user");
-      delivered = count ?? 0;
-    } else if (n.audience === "users") {
-      delivered = (n.audience_user_ids ?? []).length;
+    const recipients = await resolveNotificationRecipients(supabaseAdmin, n);
+    const now = new Date().toISOString();
+    const rows = recipients.map((uid) => ({
+      user_id: uid,
+      delivery_group_id: n.id,
+      title: n.title,
+      body: n.body ?? "",
+      message: n.body ?? "",
+      link: n.link ?? null,
+      type: n.type,
+      priority: n.priority,
+      audience: "users",
+      status: "unread",
+      sent_at: now,
+      delivered_at: now,
+      recipients_count: 1,
+      delivered_count: 1,
+      created_by: context.userId,
+    }));
+    for (const chunk of chunks(rows)) {
+      const { error: ie } = await asAny(supabaseAdmin).from("notifications").upsert(chunk, { onConflict: "delivery_group_id,user_id", ignoreDuplicates: true });
+      if (ie) throw new Error(`Notification fan-out failed: ${ie.message}`);
     }
-    const { error: ue } = await sb
+    const { count, error: ce } = await asAny(supabaseAdmin).from("notifications").select("id", { count: "exact", head: true }).eq("delivery_group_id", n.id);
+    if (ce) throw new Error(ce.message);
+    const delivered = count ?? 0;
+    const { error: ue } = await asAny(supabaseAdmin)
       .from("notifications")
-      .update({ status: "sent", sent_at: new Date().toISOString(), delivered_count: delivered })
+      .update({ status: "sent", sent_at: now, recipients_count: recipients.length, delivered_count: delivered })
       .eq("id", data.id);
     if (ue) throw ue;
     return { ok: true, delivered };
