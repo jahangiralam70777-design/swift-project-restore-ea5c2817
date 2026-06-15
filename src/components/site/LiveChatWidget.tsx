@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MessageCircle, X, Send, Loader2, ArrowLeft, Plus, Inbox } from "lucide-react";
+import {
+  MessageCircle,
+  X,
+  Send,
+  Loader2,
+  ArrowLeft,
+  Plus,
+  Inbox,
+  Headphones,
+  LifeBuoy,
+  Bot,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getChatSettings,
@@ -14,6 +27,15 @@ import {
   type ChatMessage,
   type ChatSettings,
 } from "@/lib/live-chat.functions";
+
+const LAUNCHER_ICONS: Record<string, LucideIcon> = {
+  "message-circle": MessageCircle,
+  headphones: Headphones,
+  "life-buoy": LifeBuoy,
+  bot: Bot,
+  sparkles: Sparkles,
+  send: Send,
+};
 
 // Backwards-compat exports (older settings consumer still references these)
 export type LiveChatWidgetSettings = {
