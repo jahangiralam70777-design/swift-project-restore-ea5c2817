@@ -42,6 +42,7 @@ import { Route as AdminLiveChatRouteImport } from './routes/admin.live-chat'
 import { Route as AdminFlashCardsRouteImport } from './routes/admin.flash-cards'
 import { Route as AdminDatabaseRouteImport } from './routes/admin.database'
 import { Route as AdminClassesRouteImport } from './routes/admin.classes'
+import { Route as AdminBroadcastsRouteImport } from './routes/admin.broadcasts'
 import { Route as AdminBlogRouteImport } from './routes/admin.blog'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAcademicManagerRouteImport } from './routes/admin.academic-manager'
@@ -229,6 +230,11 @@ const AdminClassesRoute = AdminClassesRouteImport.update({
   path: '/classes',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminBroadcastsRoute = AdminBroadcastsRouteImport.update({
+  id: '/broadcasts',
+  path: '/broadcasts',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBlogRoute = AdminBlogRouteImport.update({
   id: '/blog',
   path: '/blog',
@@ -372,6 +378,7 @@ export interface FileRoutesByFullPath {
   '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/blog': typeof AdminBlogRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/database': typeof AdminDatabaseRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByTo {
   '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/blog': typeof AdminBlogRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/database': typeof AdminDatabaseRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -484,6 +492,7 @@ export interface FileRoutesById {
   '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/blog': typeof AdminBlogRoute
+  '/admin/broadcasts': typeof AdminBroadcastsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/database': typeof AdminDatabaseRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -542,6 +551,7 @@ export interface FileRouteTypes {
     | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/blog'
+    | '/admin/broadcasts'
     | '/admin/classes'
     | '/admin/database'
     | '/admin/flash-cards'
@@ -597,6 +607,7 @@ export interface FileRouteTypes {
     | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/blog'
+    | '/admin/broadcasts'
     | '/admin/classes'
     | '/admin/database'
     | '/admin/flash-cards'
@@ -653,6 +664,7 @@ export interface FileRouteTypes {
     | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/blog'
+    | '/admin/broadcasts'
     | '/admin/classes'
     | '/admin/database'
     | '/admin/flash-cards'
@@ -931,6 +943,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminClassesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/broadcasts': {
+      id: '/admin/broadcasts'
+      path: '/broadcasts'
+      fullPath: '/admin/broadcasts'
+      preLoaderRoute: typeof AdminBroadcastsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/blog': {
       id: '/admin/blog'
       path: '/blog'
@@ -1145,6 +1164,7 @@ interface AdminRouteChildren {
   AdminAcademicManagerRoute: typeof AdminAcademicManagerRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminBlogRoute: typeof AdminBlogRoute
+  AdminBroadcastsRoute: typeof AdminBroadcastsRoute
   AdminClassesRoute: typeof AdminClassesRoute
   AdminDatabaseRoute: typeof AdminDatabaseRoute
   AdminFlashCardsRoute: typeof AdminFlashCardsRoute
@@ -1168,6 +1188,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAcademicManagerRoute: AdminAcademicManagerRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminBlogRoute: AdminBlogRoute,
+  AdminBroadcastsRoute: AdminBroadcastsRoute,
   AdminClassesRoute: AdminClassesRoute,
   AdminDatabaseRoute: AdminDatabaseRoute,
   AdminFlashCardsRoute: AdminFlashCardsRoute,
