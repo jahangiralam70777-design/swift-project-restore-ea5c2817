@@ -455,7 +455,7 @@ export function LiveChatWidget() {
                   <input
                     value={newSubject}
                     onChange={(e) => setNewSubject(e.target.value)}
-                    placeholder="e.g. Payment issue"
+                    placeholder="Subject (optional)"
                     maxLength={120}
                     className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-ring"
                   />
