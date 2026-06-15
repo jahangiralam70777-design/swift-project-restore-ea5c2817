@@ -849,11 +849,17 @@ export function CustomExamFlow() {
                         ? submitExam()
                         : setCurrent((c) => Math.min(examQs.length - 1, c + 1))
                     }
-                    className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                    disabled={submitting}
+                    className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-50"
                   >
-                    {current === examQs.length - 1 ? "Finish" : "Next"}{" "}
+                    {current === examQs.length - 1
+                      ? submitting
+                        ? "Submitting…"
+                        : "Finish"
+                      : "Next"}{" "}
                     <ArrowRight className="h-4 w-4" />
                   </button>
+
                 </div>
               </div>
             </div>
