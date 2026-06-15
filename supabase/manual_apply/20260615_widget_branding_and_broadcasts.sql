@@ -44,6 +44,27 @@ alter table public.notifications
   add column if not exists source_broadcast_id uuid,
   add column if not exists delivery_group_id uuid;
 
+-- Older installs used text columns with CHECK constraints instead of enums.
+-- Drop the old checks so the production fan-out statuses/types are accepted.
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications drop constraint if exists notifications_status_check;
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'notifications' and column_name = 'type' and data_type = 'text'
+  ) then
+    alter table public.notifications add constraint notifications_type_check
+      check (type in ('announcement','push','email','in_app','broadcast'));
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'notifications' and column_name = 'status' and data_type = 'text'
+  ) then
+    alter table public.notifications add constraint notifications_status_check
+      check (status in ('draft','scheduled','sent','failed','paused','unread','read'));
+  end if;
+end $$;
+
 update public.notifications
    set message = body
  where coalesce(message, '') = '' and coalesce(body, '') <> '';
