@@ -265,8 +265,10 @@ export const startNewConversation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const subject = data.subject?.trim() || null;
     const firstMessage = data.first_message ? sanitizeBody(data.first_message) : "";
-    const inferredTitle =
-      subject || (firstMessage ? firstMessage.slice(0, 60) : null);
+    const fallbackFromMessage = firstMessage
+      ? firstMessage.split(/\s+/).filter(Boolean).slice(0, 8).join(" ")
+      : null;
+    const inferredTitle = subject || fallbackFromMessage;
     const { data: created, error } = await asAny(context.supabase)
       .from("live_chat_conversations")
       .insert({
