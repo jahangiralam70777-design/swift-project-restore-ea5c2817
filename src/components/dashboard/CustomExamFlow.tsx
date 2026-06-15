@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { sanitizeOptionText } from "@/lib/sanitize-option";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -281,14 +282,24 @@ export function CustomExamFlow() {
           })),
         },
       });
+      // Update result + submitted together so the result view renders
+      // in the same render pass as the state flip.
       setResult(r);
       setSubmitted(true);
+      // Scroll to top so the result panel is visible immediately.
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      toast.success("Exam submitted");
     } catch (e) {
       console.error("Custom exam submit failed", e);
+      const msg = e instanceof Error ? e.message : "Could not submit exam. Please try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
+
 
   // Display stats — pre-submit shows only attempted/remaining (no correctness),
   // post-submit shows server-confirmed numbers.
@@ -838,11 +849,17 @@ export function CustomExamFlow() {
                         ? submitExam()
                         : setCurrent((c) => Math.min(examQs.length - 1, c + 1))
                     }
-                    className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                    disabled={submitting}
+                    className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-50"
                   >
-                    {current === examQs.length - 1 ? "Finish" : "Next"}{" "}
+                    {current === examQs.length - 1
+                      ? submitting
+                        ? "Submitting…"
+                        : "Finish"
+                      : "Next"}{" "}
                     <ArrowRight className="h-4 w-4" />
                   </button>
+
                 </div>
               </div>
             </div>
