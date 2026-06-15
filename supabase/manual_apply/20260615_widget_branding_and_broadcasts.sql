@@ -1,6 +1,10 @@
 -- =====================================================================
 -- LIVE CHAT WIDGET BRANDING + BROADCAST MESSAGING SYSTEM
 -- Idempotent, additive. Apply via Supabase SQL editor.
+-- Order: enums -> tables (both) -> grants/RLS -> policies -> realtime.
+-- The recipient-visibility policy on `broadcasts` references
+-- `broadcast_recipients`, so both tables must exist before any policy
+-- is created.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -30,7 +34,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 -- ---------------------------------------------------------------------
--- 3. Broadcasts
+-- 3. Broadcasts table (NO policies yet — recipients table not created)
 -- ---------------------------------------------------------------------
 create table if not exists public.broadcasts (
   id                uuid primary key default gen_random_uuid(),
@@ -60,6 +64,28 @@ grant select, insert, update, delete on public.broadcasts to authenticated;
 grant all on public.broadcasts to service_role;
 alter table public.broadcasts enable row level security;
 
+-- ---------------------------------------------------------------------
+-- 4. Broadcast recipients (per-user delivery state)
+-- ---------------------------------------------------------------------
+create table if not exists public.broadcast_recipients (
+  id            uuid primary key default gen_random_uuid(),
+  broadcast_id  uuid not null references public.broadcasts(id) on delete cascade,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  delivered_at  timestamptz not null default now(),
+  read_at       timestamptz,
+  hidden_at     timestamptz,
+  unique (broadcast_id, user_id)
+);
+create index if not exists idx_br_user_unread on public.broadcast_recipients(user_id, read_at);
+create index if not exists idx_br_broadcast on public.broadcast_recipients(broadcast_id);
+
+grant select, insert, update on public.broadcast_recipients to authenticated;
+grant all on public.broadcast_recipients to service_role;
+alter table public.broadcast_recipients enable row level security;
+
+-- ---------------------------------------------------------------------
+-- 5. Policies for broadcasts (now safe — recipients table exists)
+-- ---------------------------------------------------------------------
 drop policy if exists broadcasts_select_admin on public.broadcasts;
 create policy broadcasts_select_admin on public.broadcasts for select to authenticated
   using (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
@@ -85,24 +111,8 @@ create policy broadcasts_delete_super on public.broadcasts for delete to authent
   using (public.has_role(auth.uid(),'super_admin'));
 
 -- ---------------------------------------------------------------------
--- 4. Broadcast recipients (per-user delivery state)
+-- 6. Policies for broadcast_recipients
 -- ---------------------------------------------------------------------
-create table if not exists public.broadcast_recipients (
-  id            uuid primary key default gen_random_uuid(),
-  broadcast_id  uuid not null references public.broadcasts(id) on delete cascade,
-  user_id       uuid not null references auth.users(id) on delete cascade,
-  delivered_at  timestamptz not null default now(),
-  read_at       timestamptz,
-  hidden_at     timestamptz,
-  unique (broadcast_id, user_id)
-);
-create index if not exists idx_br_user_unread on public.broadcast_recipients(user_id, read_at);
-create index if not exists idx_br_broadcast on public.broadcast_recipients(broadcast_id);
-
-grant select, insert, update on public.broadcast_recipients to authenticated;
-grant all on public.broadcast_recipients to service_role;
-alter table public.broadcast_recipients enable row level security;
-
 drop policy if exists br_select_self on public.broadcast_recipients;
 create policy br_select_self on public.broadcast_recipients for select to authenticated
   using (user_id = auth.uid()
@@ -120,7 +130,7 @@ create policy br_insert_admin on public.broadcast_recipients for insert to authe
   with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
 
 -- ---------------------------------------------------------------------
--- 5. Templates
+-- 7. Templates
 -- ---------------------------------------------------------------------
 create table if not exists public.broadcast_templates (
   id                uuid primary key default gen_random_uuid(),
@@ -156,7 +166,7 @@ create policy bt_write on public.broadcast_templates for all to authenticated
   with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'super_admin'));
 
 -- ---------------------------------------------------------------------
--- 6. Realtime publication
+-- 8. Realtime publication
 -- ---------------------------------------------------------------------
 do $$ begin
   alter publication supabase_realtime add table public.broadcasts;
