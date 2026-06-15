@@ -307,6 +307,7 @@ function RootInner() {
       <ConfirmDialogHost />
       <WhatsAppFloatingButton />
       <LiveChatWidget />
+      <BroadcastPopup />
     </Suspense>
   );
 }
