@@ -24,6 +24,12 @@ export type ChatSettings = {
   auto_assignment_enabled: boolean;
   attachment_max_mb: number;
   rate_limit_per_minute: number;
+  // Launcher branding
+  button_text: string;
+  tooltip_text: string;
+  icon_name: string;
+  show_label: boolean;
+  show_launcher: boolean;
 };
 
 export type ChatConversation = {
@@ -181,6 +187,11 @@ const settingsUpdateSchema = z.object({
   auto_assignment_enabled: z.boolean().optional(),
   attachment_max_mb: z.number().int().min(1).max(50).optional(),
   rate_limit_per_minute: z.number().int().min(1).max(120).optional(),
+  button_text: z.string().min(1).max(40).optional(),
+  tooltip_text: z.string().min(1).max(80).optional(),
+  icon_name: z.enum(["message-circle", "headphones", "life-buoy", "bot", "sparkles", "send"]).optional(),
+  show_label: z.boolean().optional(),
+  show_launcher: z.boolean().optional(),
 });
 
 export const updateChatSettings = createServerFn({ method: "POST" })
@@ -241,7 +252,10 @@ export const listMyConversations = createServerFn({ method: "GET" })
   });
 
 const startConversationSchema = z
-  .object({ subject: z.string().max(200).optional() })
+  .object({
+    subject: z.string().max(200).optional(),
+    first_message: z.string().max(4000).optional(),
+  })
   .optional()
   .default({});
 
@@ -250,17 +264,32 @@ export const startNewConversation = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => startConversationSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const subject = data.subject?.trim() || null;
+    const firstMessage = data.first_message ? sanitizeBody(data.first_message) : "";
+    const inferredTitle =
+      subject || (firstMessage ? firstMessage.slice(0, 60) : null);
     const { data: created, error } = await asAny(context.supabase)
       .from("live_chat_conversations")
       .insert({
         user_id: context.userId,
         status: "new",
         subject,
-        title: subject,
+        title: inferredTitle,
       })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+
+    if (firstMessage) {
+      await asAny(context.supabase)
+        .from("live_chat_messages")
+        .insert({
+          conversation_id: created.id,
+          sender_type: "user",
+          sender_user_id: context.userId,
+          body: firstMessage,
+          delivered_at: new Date().toISOString(),
+        });
+    }
     return created as ChatConversation;
   });
 
