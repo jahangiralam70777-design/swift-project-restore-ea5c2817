@@ -21,6 +21,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useMyNotifications, type MyNotification } from "@/hooks/use-my-notifications";
+import { useMyBroadcasts } from "@/hooks/use-my-broadcasts";
+import type { MyBroadcast } from "@/lib/broadcasts.functions";
 
 const TYPE_ICON: Record<MyNotification["type"], typeof Bell> = {
   announcement: Megaphone,
@@ -224,6 +226,8 @@ export function NotificationsFlow() {
           </div>
         </div>
       </div>
+
+      <BroadcastsInbox />
 
       {/* Filter bar */}
       <div className="glass shadow-card-soft rounded-2xl p-3">
@@ -570,6 +574,82 @@ function Mini({ label, value }: { label: string; value: number }) {
     <div className="rounded-xl border border-border/60 bg-background/40 py-2">
       <div className="font-display text-lg font-bold">{value}</div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function BroadcastsInbox() {
+  const { items, unread, markRead } = useMyBroadcasts();
+  const [expanded, setExpanded] = useState(false);
+  if (!items.length) return null;
+  const sorted = [...items].sort((a, b) => {
+    if (!!a.read_at !== !!b.read_at) return a.read_at ? 1 : -1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+  const shown = expanded ? sorted : sorted.slice(0, 3);
+  return (
+    <div className="glass shadow-card-soft rounded-2xl p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Megaphone className="h-4 w-4 text-[var(--neon-purple)]" />
+          <h3 className="text-sm font-semibold">Admin Broadcasts</h3>
+          {unread > 0 ? (
+            <span className="rounded-full bg-[var(--neon-purple)]/20 px-2 py-0.5 text-[10px] font-semibold text-[var(--neon-purple)]">
+              {unread} new
+            </span>
+          ) : null}
+        </div>
+        {sorted.length > 3 ? (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? "Show less" : `Show all (${sorted.length})`}
+          </button>
+        ) : null}
+      </div>
+      <ul className="space-y-2">
+        {shown.map((b: MyBroadcast) => {
+          const tag =
+            b.priority === "urgent"
+              ? "bg-red-500/15 text-red-500"
+              : b.priority === "important"
+                ? "bg-amber-500/15 text-amber-500"
+                : "bg-primary/15 text-primary";
+          return (
+            <li
+              key={b.recipient_id}
+              className={`flex items-start gap-3 rounded-xl border border-border/60 bg-background/40 p-3 transition-colors ${
+                !b.read_at ? "ring-1 ring-[var(--neon-purple)]/30" : ""
+              }`}
+            >
+              <div className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tag}`}>
+                {b.priority === "urgent" ? "Urgent" : b.priority === "important" ? "Important" : "Notice"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-semibold">{b.subject}</p>
+                  {!b.read_at ? (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--neon-purple)]" aria-hidden />
+                  ) : null}
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{b.body}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {b.sender_name ?? "Admin"} · {new Date(b.sent_at ?? b.created_at).toLocaleString()}
+                </p>
+              </div>
+              {!b.read_at ? (
+                <button
+                  onClick={() => markRead.mutate(b.recipient_id)}
+                  className="rounded-md border border-border/60 px-2 py-1 text-[10px] text-foreground/80 hover:text-foreground"
+                >
+                  Mark read
+                </button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

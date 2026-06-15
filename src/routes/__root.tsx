@@ -26,6 +26,7 @@ import { LiveRegionProvider } from "@/components/a11y/LiveRegion";
 import { ConfirmDialogHost } from "@/components/ui/confirm-imperative";
 import { WhatsAppFloatingButton } from "@/components/site/WhatsAppFloatingButton";
 import { LiveChatWidget } from "@/components/site/LiveChatWidget";
+import { BroadcastPopup } from "@/components/site/BroadcastPopup";
 
 import appCss from "../styles.css?url";
 
@@ -306,6 +307,7 @@ function RootInner() {
       <ConfirmDialogHost />
       <WhatsAppFloatingButton />
       <LiveChatWidget />
+      <BroadcastPopup />
     </Suspense>
   );
 }

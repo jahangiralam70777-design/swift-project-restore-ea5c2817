@@ -17,6 +17,9 @@ export type BroadcastTargetKind =
   | "course"
   | "users";
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+export type TargetFilter = { [k: string]: JsonValue };
+
 export type Broadcast = {
   id: string;
   subject: string;
@@ -24,7 +27,7 @@ export type Broadcast = {
   priority: BroadcastPriority;
   delivery_methods: string[];
   target_kind: BroadcastTargetKind;
-  target_filter: Record<string, unknown>;
+  target_filter: TargetFilter;
   status: BroadcastStatus;
   visible: boolean;
   pinned: boolean;
@@ -69,7 +72,7 @@ function dateFromPreset(preset: string, custom_from?: string, custom_to?: string
 async function resolveRecipients(
   supabaseAdmin: any,
   kind: BroadcastTargetKind,
-  filter: Record<string, unknown>,
+  filter: TargetFilter,
 ): Promise<string[]> {
   if (kind === "users") {
     const ids = (filter.user_ids as string[]) ?? [];
@@ -111,7 +114,7 @@ const createSchema = z.object({
   priority: z.enum(["normal", "important", "urgent"]).default("normal"),
   delivery_methods: z.array(z.enum(["inbox", "chat", "popup"])).min(1).default(["inbox"]),
   target_kind: z.enum(["all_students", "active_users", "new_users", "class", "batch", "course", "users"]),
-  target_filter: z.record(z.string(), z.unknown()).default({}),
+  target_filter: z.record(z.string(), z.any()).default({}) as unknown as z.ZodType<TargetFilter>,
 });
 
 export const createBroadcast = createServerFn({ method: "POST" })
@@ -252,7 +255,7 @@ export type BroadcastTemplate = {
   priority: BroadcastPriority;
   delivery_methods: string[];
   target_kind: BroadcastTargetKind | null;
-  target_filter: Record<string, unknown>;
+  target_filter: TargetFilter;
   archived: boolean;
   created_at: string;
 };
@@ -276,7 +279,7 @@ const templateSchema = z.object({
   priority: z.enum(["normal", "important", "urgent"]).default("normal"),
   delivery_methods: z.array(z.enum(["inbox", "chat", "popup"])).default(["inbox"]),
   target_kind: z.enum(["all_students", "active_users", "new_users", "class", "batch", "course", "users"]).optional(),
-  target_filter: z.record(z.string(), z.unknown()).default({}),
+  target_filter: z.record(z.string(), z.any()).default({}) as unknown as z.ZodType<TargetFilter>,
 });
 
 export const createTemplate = createServerFn({ method: "POST" })
