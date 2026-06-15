@@ -758,7 +758,7 @@ export function WrongQuestionsFlow() {
                   icon: RotateCw,
                   title: "Review All Wrong",
                   hint: "Start reviewing all wrong answers",
-                  onClick: () => navigate({ to: "/mcq-practice" }),
+                  onClick: () => startReview(items.map((i) => i.mcq!.id)),
                 },
                 {
                   icon: Layers,
