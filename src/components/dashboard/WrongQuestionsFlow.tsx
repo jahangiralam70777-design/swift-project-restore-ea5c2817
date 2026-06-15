@@ -215,6 +215,9 @@ export function WrongQuestionsFlow() {
   const [chapterId, setChapterId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [visible, setVisible] = useState(5);
+  const [reviewIds, setReviewIds] = useState<string[] | null>(null);
+  const [reviewIdx, setReviewIdx] = useState(0);
+  const [reviewBusy, setReviewBusy] = useState(false);
   const navigate = useNavigate();
 
   const qc = useQueryClient();
