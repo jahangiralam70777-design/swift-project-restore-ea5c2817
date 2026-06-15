@@ -20,7 +20,12 @@ function chunks<T>(rows: T[], size = 500) {
 }
 
 async function resolveNotificationRecipients(supabaseAdmin: any, n: any): Promise<string[]> {
-  if (n.audience === "users") return Array.from(new Set((n.audience_user_ids ?? []).filter(Boolean)));
+  if (n.audience === "users") {
+    const rawIds = Array.isArray(n.audience_user_ids) ? n.audience_user_ids : [];
+    return Array.from(
+      new Set(rawIds.filter((id): id is string => typeof id === "string" && id.length > 0)),
+    );
+  }
   if (n.audience === "role" && n.audience_role) {
     const { data, error } = await asAny(supabaseAdmin).from("user_roles").select("user_id").eq("role", n.audience_role);
     if (error) throw new Error(error.message);
@@ -30,7 +35,7 @@ async function resolveNotificationRecipients(supabaseAdmin: any, n: any): Promis
   if (n.audience === "level" && n.audience_level) q = q.eq("level", n.audience_level);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  const ids = Array.from(new Set((data ?? []).map((r: any) => r.id as string)));
+  const ids: string[] = Array.from(new Set((data ?? []).map((r: any) => r.id as string)));
   const { data: roles, error: rErr } = await asAny(supabaseAdmin).from("user_roles").select("user_id,role").in("user_id", ids);
   if (rErr) throw new Error(rErr.message);
   const byUser = new Map<string, Set<string>>();
@@ -39,7 +44,10 @@ async function resolveNotificationRecipients(supabaseAdmin: any, n: any): Promis
     set.add(r.role);
     byUser.set(r.user_id, set);
   }
-  return ids.filter((id) => byUser.get(id)?.has("student") && !byUser.get(id)?.has("admin") && !byUser.get(id)?.has("moderator") && !byUser.get(id)?.has("super_admin"));
+  return ids.filter((id) => {
+    const roles = byUser.get(id);
+    return !!roles?.has("student") && !roles.has("admin") && !roles.has("moderator") && !roles.has("super_admin");
+  });
 }
 
 // ---------- Admin: list ----------
@@ -221,8 +229,9 @@ export const listMyNotifications = createServerFn({ method: "GET" })
     const sb = context.supabase;
     const { data, error } = await sb
       .from("notifications")
-      .select("id,title,body,link,type,priority,sent_at,created_at")
-      .eq("status", "sent")
+      .select("id,title,body,link,type,priority,status,sent_at,created_at")
+      .eq("user_id", context.userId)
+      .in("status", ["unread", "read", "sent"])
       .order("sent_at", { ascending: false })
       .limit(100);
     if (error) throw error;
@@ -233,17 +242,26 @@ export const listMyNotifications = createServerFn({ method: "GET" })
     const readSet = new Set(
       (reads ?? []).map((r: { notification_id: string }) => r.notification_id),
     );
-    return (data ?? []).map((n: { id: string }) => ({ ...n, read: readSet.has(n.id) }));
+    return (data ?? []).map((n: { id: string; status?: string }) => ({
+      ...n,
+      read: n.status === "read" || readSet.has(n.id),
+    }));
   });
 
 export const markNotificationRead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: { id: string }) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    const now = new Date().toISOString();
+    await context.supabase
+      .from("notifications")
+      .update({ status: "read", read_at: now })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
     const { error } = await context.supabase
       .from("notification_reads")
       .upsert(
-        { notification_id: data.id, user_id: context.userId },
+        { notification_id: data.id, user_id: context.userId, read_at: now },
         { onConflict: "notification_id,user_id" },
       );
     if (error) throw error;
@@ -258,14 +276,17 @@ export const markAllNotificationsRead = createServerFn({ method: "POST" })
     const { data: notifs, error: ne } = await sb
       .from("notifications")
       .select("id")
-      .eq("status", "sent")
+      .eq("user_id", context.userId)
+      .in("status", ["unread", "sent"])
       .limit(500);
     if (ne) throw ne;
     if (!notifs?.length) return { ok: true, count: 0 };
     const rows = notifs.map((n: { id: string }) => ({
       notification_id: n.id,
       user_id: context.userId,
+      read_at: new Date().toISOString(),
     }));
+    await sb.from("notifications").update({ status: "read", read_at: new Date().toISOString() }).eq("user_id", context.userId).in("id", notifs.map((n: { id: string }) => n.id));
     const { error } = await sb
       .from("notification_reads")
       .upsert(rows, { onConflict: "notification_id,user_id" });
