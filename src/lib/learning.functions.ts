@@ -706,7 +706,7 @@ export const submitCustomExamAttempt = createServerFn({ method: "POST" })
         .from("exam_attempts")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .eq("kind", "custom")
+        .eq("kind", "custom_exam")
         .eq("status", "completed");
       attemptNumber = (count ?? 0) + 1;
     }
@@ -716,7 +716,7 @@ export const submitCustomExamAttempt = createServerFn({ method: "POST" })
       .insert({
         user_id: userId,
         quiz_id: null,
-        kind: "custom",
+        kind: "custom_exam",
         subject_id: data.subjectId ?? null,
         chapter_id:
           data.chapterIds && data.chapterIds.length === 1 ? data.chapterIds[0] : null,
