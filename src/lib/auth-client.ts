@@ -47,6 +47,7 @@ function roleFromAppMetadata(appMetadata: Record<string, unknown> | undefined): 
   const roles = Array.isArray(appMetadata?.roles) ? appMetadata.roles : [];
   if (role === "super_admin" || roles.includes("super_admin")) return "super_admin";
   if (role === "admin" || roles.includes("admin")) return "admin";
+  if (role === "moderator" || roles.includes("moderator")) return "moderator";
   return null;
 }
 
@@ -80,6 +81,7 @@ export async function signInWithEmail(
       const roles = (roleRows ?? []).map((r) => r.role as string);
       if (roles.includes("super_admin")) role = "super_admin";
       else if (roles.includes("admin")) role = "admin";
+      else if (roles.includes("moderator")) role = "moderator";
     }
   } catch (e) {
     // Fail-OPEN to "student" if role lookup fails — we then apply the gate,
@@ -88,7 +90,7 @@ export async function signInWithEmail(
     console.warn("[auth] role lookup after sign-in failed", e);
   }
 
-  const isPrivileged = role === "admin" || role === "super_admin";
+  const isPrivileged = role === "admin" || role === "super_admin" || role === "moderator";
   if (options.intent !== "admin" && !isPrivileged) {
     try {
       const r = await checkAuthAllowed({ data: { kind: "login" } });
@@ -275,7 +277,9 @@ export async function fetchSessionUser(session?: Session | null): Promise<AuthUs
       ? "super_admin"
       : roles.some((r) => r.role === "admin")
         ? "admin"
-        : (metadataRole ?? "student")
+        : roles.some((r) => r.role === "moderator")
+          ? "moderator"
+          : (metadataRole ?? "student")
     : (metadataRole ?? "student");
 
   return {

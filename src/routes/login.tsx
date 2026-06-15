@@ -58,7 +58,7 @@ function StudentLogin() {
       const u = await refreshAuth({ force: true });
       // Strict separation: admin accounts MUST sign in via /admin/login.
       // Sign them out and STAY on /login (no cross-redirect to admin entry).
-      if (u?.role === "admin") {
+      if (u?.role === "admin" || u?.role === "super_admin" || u?.role === "moderator") {
         await signOut().catch(() => undefined);
         await refreshAuth({ force: true });
         toast.error(
