@@ -2,12 +2,30 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, MessageCircle } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  MessageCircle,
+  Headphones,
+  LifeBuoy,
+  Bot,
+  Sparkles,
+  Send as SendIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { getChatSettings, updateChatSettings, type ChatSettings } from "@/lib/live-chat.functions";
+
+const ICON_OPTIONS = [
+  { value: "message-circle", label: "Chat bubble", Icon: MessageCircle },
+  { value: "headphones", label: "Headphones", Icon: Headphones },
+  { value: "life-buoy", label: "Life buoy", Icon: LifeBuoy },
+  { value: "bot", label: "Bot", Icon: Bot },
+  { value: "sparkles", label: "Sparkles", Icon: Sparkles },
+  { value: "send", label: "Paper plane", Icon: SendIcon },
+] as const;
 
 const DEFAULT: ChatSettings = {
   enabled: true,
@@ -20,6 +38,11 @@ const DEFAULT: ChatSettings = {
   auto_assignment_enabled: false,
   attachment_max_mb: 10,
   rate_limit_per_minute: 20,
+  button_text: "Live Chat",
+  tooltip_text: "Chat with our team",
+  icon_name: "message-circle",
+  show_label: true,
+  show_launcher: true,
 };
 
 export function LiveChatWidgetSettingsPanel() {
