@@ -69,6 +69,37 @@ function dateFromPreset(preset: string, custom_from?: string, custom_to?: string
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+async function filterStudentRecipients(supabaseAdmin: any, ids: string[]): Promise<string[]> {
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  if (unique.length === 0) return [];
+  const { data } = await asAny(supabaseAdmin)
+    .from("user_roles")
+    .select("user_id, role")
+    .in("user_id", unique);
+  const rolesByUser = new Map<string, Set<string>>();
+  for (const r of (data ?? []) as Array<{ user_id: string; role: string }>) {
+    const set = rolesByUser.get(r.user_id) ?? new Set<string>();
+    set.add(r.role);
+    rolesByUser.set(r.user_id, set);
+  }
+  return unique.filter((id) => {
+    const roles = rolesByUser.get(id);
+    return !!roles?.has("student") && !roles.has("admin") && !roles.has("super_admin") && !roles.has("moderator");
+  });
+}
+
+function notificationPriority(priority: BroadcastPriority) {
+  if (priority === "urgent") return "critical";
+  if (priority === "important") return "high";
+  return "medium";
+}
+
+function chunks<T>(rows: T[], size = 500) {
+  const out: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) out.push(rows.slice(i, i + size));
+  return out;
+}
+
 async function resolveRecipients(
   supabaseAdmin: any,
   kind: BroadcastTargetKind,
@@ -123,7 +154,10 @@ export const createBroadcast = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await ensureAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const ids = await resolveRecipients(supabaseAdmin, data.target_kind, data.target_filter);
+    const ids = await filterStudentRecipients(
+      supabaseAdmin,
+      await resolveRecipients(supabaseAdmin, data.target_kind, data.target_filter),
+    );
     const now = new Date().toISOString();
     const { data: row, error } = await asAny(supabaseAdmin)
       .from("broadcasts")
@@ -143,13 +177,58 @@ export const createBroadcast = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     if (ids.length > 0) {
-      const rows = ids.map((uid) => ({ broadcast_id: row.id, user_id: uid }));
-      // Batch in chunks of 500
-      for (let i = 0; i < rows.length; i += 500) {
-        const chunk = rows.slice(i, i + 500);
+      const recipientRows = ids.map((uid) => ({ broadcast_id: row.id, user_id: uid }));
+      for (const chunk of chunks(recipientRows)) {
         const { error: e2 } = await asAny(supabaseAdmin)
-          .from("broadcast_recipients").insert(chunk);
-        if (e2) throw new Error(e2.message);
+          .from("broadcast_recipients")
+          .upsert(chunk, { onConflict: "broadcast_id,user_id" });
+        if (e2) throw new Error(`Broadcast recipient delivery failed: ${e2.message}`);
+      }
+
+      const wantsInbox = data.delivery_methods.includes("inbox") || data.delivery_methods.includes("popup");
+      if (wantsInbox) {
+        const { error: nErr } = await asAny(supabaseAdmin).from("notifications").insert({
+          title: `FROM ADMIN: ${data.subject.trim()}`,
+          body: data.body.trim(),
+          type: "announcement",
+          priority: notificationPriority(data.priority),
+          audience: "users",
+          audience_user_ids: ids,
+          status: "sent",
+          sent_at: now,
+          delivered_count: ids.length,
+          created_by: context.userId,
+        });
+        if (nErr) throw new Error(`Notification delivery failed: ${nErr.message}`);
+      }
+
+      if (data.delivery_methods.includes("chat")) {
+        for (const uidChunk of chunks(ids, 200)) {
+          const { data: convs, error: cErr } = await asAny(supabaseAdmin)
+            .from("live_chat_conversations")
+            .upsert(
+              uidChunk.map((uid) => ({
+                user_id: uid,
+                subject: "Admin Broadcasts",
+                title: "Admin Broadcasts",
+                status: "open",
+              })),
+              { onConflict: "user_id,subject" },
+            )
+            .select("id,user_id");
+          if (cErr) throw new Error(`Chat delivery failed: ${cErr.message}`);
+          const messages = ((convs ?? []) as Array<{ id: string; user_id: string }>).map((c) => ({
+            conversation_id: c.id,
+            sender_type: "staff",
+            sender_user_id: context.userId,
+            body: `FROM ADMIN\n${data.subject.trim()}\n\n${data.body.trim()}`,
+            delivered_at: now,
+          }));
+          if (messages.length) {
+            const { error: mErr } = await asAny(supabaseAdmin).from("live_chat_messages").insert(messages);
+            if (mErr) throw new Error(`Chat message delivery failed: ${mErr.message}`);
+          }
+        }
       }
     }
     return { id: row.id, recipient_count: ids.length };
