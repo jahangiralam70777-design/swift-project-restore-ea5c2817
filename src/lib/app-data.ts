@@ -21,6 +21,7 @@ import {
   Globe,
   Newspaper,
   MessageCircle,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -133,6 +134,12 @@ export const adminNavItems: NavItem[] = [
     to: "/admin/live-chat",
     icon: MessageCircle,
     keywords: ["chat", "support", "messages", "inbox", "live"],
+  },
+  {
+    title: "Broadcast Messages",
+    to: "/admin/broadcasts",
+    icon: Megaphone,
+    keywords: ["broadcast", "announcement", "notify", "send", "blast"],
   },
   { title: "Settings", to: "/admin/settings", icon: Settings, keywords: ["save", "platform"] },
 ];

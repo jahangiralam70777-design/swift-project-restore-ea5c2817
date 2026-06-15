@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { MessageCircle, X, Send, Loader2, ArrowLeft, Plus, Inbox } from "lucide-react";
+import {
+  MessageCircle,
+  X,
+  Send,
+  Loader2,
+  ArrowLeft,
+  Plus,
+  Inbox,
+  Headphones,
+  LifeBuoy,
+  Bot,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getChatSettings,
@@ -14,6 +27,15 @@ import {
   type ChatMessage,
   type ChatSettings,
 } from "@/lib/live-chat.functions";
+
+const LAUNCHER_ICONS: Record<string, LucideIcon> = {
+  "message-circle": MessageCircle,
+  headphones: Headphones,
+  "life-buoy": LifeBuoy,
+  bot: Bot,
+  sparkles: Sparkles,
+  send: Send,
+};
 
 // Backwards-compat exports (older settings consumer still references these)
 export type LiveChatWidgetSettings = {
@@ -95,7 +117,9 @@ export function LiveChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [view, setView] = useState<"picker" | "thread">("picker");
+  const [view, setView] = useState<"picker" | "thread" | "compose">("picker");
+  const [newSubject, setNewSubject] = useState("");
+  const [newMessage, setNewMessage] = useState("");
   const [soundOn, setSoundOn] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
     return localStorage.getItem(SOUND_KEY) !== "0";
@@ -146,6 +170,11 @@ export function LiveChatWidget() {
     auto_assignment_enabled: false,
     attachment_max_mb: 10,
     rate_limit_per_minute: 20,
+    button_text: "Live Chat",
+    tooltip_text: "Chat with our team",
+    icon_name: "message-circle",
+    show_label: true,
+    show_launcher: true,
   }) as ChatSettings;
 
   const convsQ = useQuery({
@@ -225,10 +254,14 @@ export function LiveChatWidget() {
   });
 
   const startMutation = useMutation({
-    mutationFn: async () => startConv({ data: {} }),
+    mutationFn: async (vars: { subject?: string; first_message?: string }) =>
+      startConv({ data: vars }),
     onSuccess: (conv) => {
       qc.invalidateQueries({ queryKey: ["chat", "my-conversations"] });
+      qc.invalidateQueries({ queryKey: ["chat", "messages", conv.id] });
       setActiveConvId(conv.id);
+      setNewSubject("");
+      setNewMessage("");
       setView("thread");
     },
   });
@@ -329,19 +362,19 @@ export function LiveChatWidget() {
             <div className="flex flex-1 flex-col overflow-hidden bg-background">
               <div className="border-b border-border bg-card px-4 py-3">
                 <button
-                  onClick={() => startMutation.mutate()}
-                  disabled={startMutation.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white shadow disabled:opacity-60"
+                  onClick={() => {
+                    setNewSubject("");
+                    setNewMessage("");
+                    setView("compose");
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white shadow"
                   style={themeStyle}
                 >
-                  {startMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
+                  <Plus className="h-4 w-4" />
                   Start new conversation
                 </button>
               </div>
+
 
               <div className="flex-1 overflow-y-auto">
                 {convsQ.isLoading && (
@@ -397,6 +430,76 @@ export function LiveChatWidget() {
                     );
                   })}
                 </ul>
+              </div>
+            </div>
+          )}
+
+          {/* ───────── COMPOSE VIEW ───────── */}
+          {view === "compose" && (
+            <div className="flex flex-1 flex-col overflow-hidden bg-background">
+              <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-2">
+                <button
+                  onClick={() => setView("picker")}
+                  className="rounded-md p-1 text-foreground hover:bg-muted"
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <p className="text-sm font-semibold text-foreground">New conversation</p>
+              </div>
+              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Subject <span className="font-normal normal-case text-muted-foreground/70">(optional)</span>
+                  </label>
+                  <input
+                    value={newSubject}
+                    onChange={(e) => setNewSubject(e.target.value)}
+                    placeholder="e.g. Payment issue"
+                    maxLength={120}
+                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Message
+                  </label>
+                  <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="How can we help?"
+                    rows={6}
+                    maxLength={4000}
+                    className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                {startMutation.error && (
+                  <p className="text-[11px] text-destructive">
+                    {(startMutation.error as Error).message}
+                  </p>
+                )}
+              </div>
+              <div className="border-t border-border bg-card px-3 py-3">
+                <button
+                  onClick={() => {
+                    const msg = newMessage.trim();
+                    if (!msg || startMutation.isPending) return;
+                    startMutation.mutate({
+                      subject: newSubject.trim() || undefined,
+                      first_message: msg,
+                    });
+                  }}
+                  disabled={!newMessage.trim() || startMutation.isPending}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white shadow disabled:opacity-60"
+                  style={themeStyle}
+                >
+                  {startMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Send message
+                </button>
               </div>
             </div>
           )}
@@ -490,22 +593,43 @@ export function LiveChatWidget() {
         </div>
       )}
 
-      <button
-        onClick={() => {
-          setOpen((o) => !o);
-          if (!open) setView("picker");
-        }}
-        className="relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-transform hover:scale-105"
-        style={themeStyle}
-        aria-label={open ? "Close chat" : "Open chat"}
-      >
-        {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
-        {!open && totalUnread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white shadow ring-2 ring-background">
-            {totalUnread > 9 ? "9+" : totalUnread}
-          </span>
-        )}
-      </button>
+      {settings.show_launcher !== false && (
+        <button
+          onClick={() => {
+            setOpen((o) => !o);
+            if (!open) setView("picker");
+          }}
+          title={settings.tooltip_text || "Chat with our team"}
+          aria-label={open ? "Close chat" : settings.button_text || "Live Chat"}
+          className={`relative flex items-center gap-2 rounded-full font-semibold text-white shadow-xl ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+            open || settings.show_label === false
+              ? "h-14 w-14 justify-center"
+              : "h-12 px-5"
+          }`}
+          style={themeStyle}
+        >
+          {(() => {
+            if (open) return <X className="h-6 w-6" />;
+            const Icon = LAUNCHER_ICONS[settings.icon_name] ?? MessageCircle;
+            const showLabel = settings.show_label !== false;
+            return (
+              <>
+                <Icon className={showLabel ? "h-5 w-5" : "h-6 w-6"} />
+                {showLabel && (
+                  <span className="hidden text-sm leading-none tracking-wide sm:inline">
+                    {settings.button_text || "Live Chat"}
+                  </span>
+                )}
+              </>
+            );
+          })()}
+          {!open && totalUnread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white shadow ring-2 ring-background">
+              {totalUnread > 9 ? "9+" : totalUnread}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

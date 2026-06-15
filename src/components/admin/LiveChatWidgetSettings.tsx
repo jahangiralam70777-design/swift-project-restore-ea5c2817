@@ -2,12 +2,30 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, MessageCircle } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  MessageCircle,
+  Headphones,
+  LifeBuoy,
+  Bot,
+  Sparkles,
+  Send as SendIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { getChatSettings, updateChatSettings, type ChatSettings } from "@/lib/live-chat.functions";
+
+const ICON_OPTIONS = [
+  { value: "message-circle", label: "Chat bubble", Icon: MessageCircle },
+  { value: "headphones", label: "Headphones", Icon: Headphones },
+  { value: "life-buoy", label: "Life buoy", Icon: LifeBuoy },
+  { value: "bot", label: "Bot", Icon: Bot },
+  { value: "sparkles", label: "Sparkles", Icon: Sparkles },
+  { value: "send", label: "Paper plane", Icon: SendIcon },
+] as const;
 
 const DEFAULT: ChatSettings = {
   enabled: true,
@@ -20,6 +38,11 @@ const DEFAULT: ChatSettings = {
   auto_assignment_enabled: false,
   attachment_max_mb: 10,
   rate_limit_per_minute: 20,
+  button_text: "Live Chat",
+  tooltip_text: "Chat with our team",
+  icon_name: "message-circle",
+  show_label: true,
+  show_launcher: true,
 };
 
 export function LiveChatWidgetSettingsPanel() {
@@ -174,6 +197,92 @@ export function LiveChatWidgetSettingsPanel() {
         </div>
       </div>
 
+
+      {/* ───── Launcher branding ───── */}
+      <div className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4">
+        <div>
+          <h4 className="text-sm font-semibold">Floating launcher</h4>
+          <p className="text-xs text-muted-foreground">
+            Pill button shown on every page. Always keep the label visible for clarity.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10"
+            style={{ background: form.theme_color }}
+          >
+            {(() => {
+              const found = ICON_OPTIONS.find((i) => i.value === form.icon_name);
+              const Icon = found?.Icon ?? MessageCircle;
+              return <Icon className="h-4 w-4" />;
+            })()}
+            {form.show_label && (form.button_text || "Live Chat")}
+          </span>
+          <span className="text-xs text-muted-foreground">Live preview</span>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="flex items-center justify-between rounded-xl border border-border bg-background p-3">
+            <div>
+              <p className="text-sm font-medium">Show launcher</p>
+              <p className="text-xs text-muted-foreground">Hide entirely from students</p>
+            </div>
+            <Switch checked={form.show_launcher} onCheckedChange={(v) => set("show_launcher", v)} />
+          </label>
+          <label className="flex items-center justify-between rounded-xl border border-border bg-background p-3">
+            <div>
+              <p className="text-sm font-medium">Show text label</p>
+              <p className="text-xs text-muted-foreground">Off = icon-only chip</p>
+            </div>
+            <Switch checked={form.show_label} onCheckedChange={(v) => set("show_label", v)} />
+          </label>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Button text</label>
+            <Input
+              value={form.button_text}
+              onChange={(e) => set("button_text", e.target.value)}
+              maxLength={40}
+              placeholder="Live Chat"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Tooltip text</label>
+            <Input
+              value={form.tooltip_text}
+              onChange={(e) => set("tooltip_text", e.target.value)}
+              maxLength={80}
+              placeholder="Chat with our team"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Icon style</label>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {ICON_OPTIONS.map(({ value, Icon, label }) => {
+                const active = form.icon_name === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => set("icon_name", value)}
+                    title={label}
+                    className={`flex items-center justify-center rounded-xl border px-2 py-3 transition ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border bg-background text-foreground/70 hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -198,6 +307,7 @@ export function LiveChatWidgetSettingsPanel() {
           />
         </div>
       </div>
+
 
       <div className="flex justify-end gap-2">
         <Button
