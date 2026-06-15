@@ -17,6 +17,9 @@ export type BroadcastTargetKind =
   | "course"
   | "users";
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+export type TargetFilter = { [k: string]: JsonValue };
+
 export type Broadcast = {
   id: string;
   subject: string;
