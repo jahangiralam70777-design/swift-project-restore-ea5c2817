@@ -27,7 +27,7 @@ export type Broadcast = {
   priority: BroadcastPriority;
   delivery_methods: string[];
   target_kind: BroadcastTargetKind;
-  target_filter: Record<string, unknown>;
+  target_filter: TargetFilter;
   status: BroadcastStatus;
   visible: boolean;
   pinned: boolean;
@@ -72,7 +72,7 @@ function dateFromPreset(preset: string, custom_from?: string, custom_to?: string
 async function resolveRecipients(
   supabaseAdmin: any,
   kind: BroadcastTargetKind,
-  filter: Record<string, unknown>,
+  filter: TargetFilter,
 ): Promise<string[]> {
   if (kind === "users") {
     const ids = (filter.user_ids as string[]) ?? [];
@@ -255,7 +255,7 @@ export type BroadcastTemplate = {
   priority: BroadcastPriority;
   delivery_methods: string[];
   target_kind: BroadcastTargetKind | null;
-  target_filter: Record<string, unknown>;
+  target_filter: TargetFilter;
   archived: boolean;
   created_at: string;
 };
