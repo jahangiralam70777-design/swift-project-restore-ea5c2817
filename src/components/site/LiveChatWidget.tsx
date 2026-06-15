@@ -362,19 +362,19 @@ export function LiveChatWidget() {
             <div className="flex flex-1 flex-col overflow-hidden bg-background">
               <div className="border-b border-border bg-card px-4 py-3">
                 <button
-                  onClick={() => startMutation.mutate()}
-                  disabled={startMutation.isPending}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white shadow disabled:opacity-60"
+                  onClick={() => {
+                    setNewSubject("");
+                    setNewMessage("");
+                    setView("compose");
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white shadow"
                   style={themeStyle}
                 >
-                  {startMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
+                  <Plus className="h-4 w-4" />
                   Start new conversation
                 </button>
               </div>
+
 
               <div className="flex-1 overflow-y-auto">
                 {convsQ.isLoading && (
