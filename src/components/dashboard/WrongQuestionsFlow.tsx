@@ -369,6 +369,31 @@ export function WrongQuestionsFlow() {
     }
   }
 
+  function startReview(ids: string[]) {
+    const unique = Array.from(new Set(ids)).filter(Boolean);
+    if (unique.length === 0) return;
+    setReviewIds(unique);
+    setReviewIdx(0);
+  }
+  async function finishReview() {
+    if (!reviewIds || reviewIds.length === 0) return;
+    setReviewBusy(true);
+    try {
+      await removeFn({ data: { mcqIds: reviewIds } });
+      invalidateAll();
+    } catch {
+      /* silent */
+    } finally {
+      setReviewBusy(false);
+      setReviewIds(null);
+      setReviewIdx(0);
+    }
+  }
+  function cancelReview() {
+    setReviewIds(null);
+    setReviewIdx(0);
+  }
+
   function resetFilters() {
     setLevel(null);
     setSubjectId(null);
