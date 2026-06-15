@@ -706,7 +706,7 @@ export const submitCustomExamAttempt = createServerFn({ method: "POST" })
         .from("exam_attempts")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .eq("kind", "custom")
+        .eq("kind", "custom_exam")
         .eq("status", "completed");
       attemptNumber = (count ?? 0) + 1;
     }
