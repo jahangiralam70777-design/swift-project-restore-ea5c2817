@@ -190,47 +190,77 @@ export const createBroadcast = createServerFn({ method: "POST" })
         const { error: nErr } = await asAny(supabaseAdmin).from("notifications").insert({
           title: `FROM ADMIN: ${data.subject.trim()}`,
           body: data.body.trim(),
-          type: "announcement",
+          type: "in_app",
           priority: notificationPriority(data.priority),
           audience: "users",
           audience_user_ids: ids,
           status: "sent",
           sent_at: now,
-          delivered_count: ids.length,
+          recipients_count: ids.length,
           created_by: context.userId,
         });
         if (nErr) throw new Error(`Notification delivery failed: ${nErr.message}`);
       }
 
       if (data.delivery_methods.includes("chat")) {
+        const BROADCAST_SUBJECT = "Admin Broadcasts";
         for (const uidChunk of chunks(ids, 200)) {
-          const { data: convs, error: cErr } = await asAny(supabaseAdmin)
+          // Find existing broadcast conversations for these users
+          const { data: existing, error: exErr } = await asAny(supabaseAdmin)
             .from("live_chat_conversations")
-            .upsert(
-              uidChunk.map((uid) => ({
+            .select("id,user_id")
+            .in("user_id", uidChunk)
+            .eq("subject", BROADCAST_SUBJECT);
+          if (exErr) throw new Error(`Chat lookup failed: ${exErr.message}`);
+          const byUser = new Map<string, string>(
+            ((existing ?? []) as Array<{ id: string; user_id: string }>).map((c) => [c.user_id, c.id]),
+          );
+          const missing = uidChunk.filter((u) => !byUser.has(u));
+          if (missing.length > 0) {
+            const { data: created, error: cErr } = await asAny(supabaseAdmin)
+              .from("live_chat_conversations")
+              .insert(missing.map((uid) => ({
                 user_id: uid,
-                subject: "Admin Broadcasts",
-                title: "Admin Broadcasts",
+                subject: BROADCAST_SUBJECT,
                 status: "open",
-              })),
-              { onConflict: "user_id,subject" },
-            )
-            .select("id,user_id");
-          if (cErr) throw new Error(`Chat delivery failed: ${cErr.message}`);
-          const messages = ((convs ?? []) as Array<{ id: string; user_id: string }>).map((c) => ({
-            conversation_id: c.id,
-            sender_type: "staff",
-            sender_user_id: context.userId,
-            body: `FROM ADMIN\n${data.subject.trim()}\n\n${data.body.trim()}`,
-            delivered_at: now,
-          }));
+                last_message_preview: data.subject.trim(),
+                last_message_at: now,
+              })))
+              .select("id,user_id");
+            if (cErr) throw new Error(`Chat delivery failed: ${cErr.message}`);
+            for (const c of (created ?? []) as Array<{ id: string; user_id: string }>) {
+              byUser.set(c.user_id, c.id);
+            }
+          }
+          const messages = uidChunk
+            .map((uid) => byUser.get(uid))
+            .filter((cid): cid is string => !!cid)
+            .map((cid) => ({
+              conversation_id: cid,
+              sender_type: "system",
+              sender_user_id: context.userId,
+              body: `📢 FROM ADMIN\n${data.subject.trim()}\n\n${data.body.trim()}`,
+              delivered_at: now,
+            }));
           if (messages.length) {
             const { error: mErr } = await asAny(supabaseAdmin).from("live_chat_messages").insert(messages);
             if (mErr) throw new Error(`Chat message delivery failed: ${mErr.message}`);
+            // Bump conversation unread + last message
+            for (const cid of new Set(messages.map((m) => m.conversation_id))) {
+              await asAny(supabaseAdmin)
+                .from("live_chat_conversations")
+                .update({
+                  last_message_at: now,
+                  last_message_preview: data.subject.trim(),
+                  unread_for_user: 1,
+                })
+                .eq("id", cid);
+            }
           }
         }
       }
     }
+
     return { id: row.id, recipient_count: ids.length };
   });
 
