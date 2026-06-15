@@ -51,11 +51,9 @@ update public.notifications
 create index if not exists idx_notifications_user_status_created
   on public.notifications(user_id, status, created_at desc);
 create unique index if not exists idx_notifications_broadcast_user_once
-  on public.notifications(source_broadcast_id, user_id)
-  where source_broadcast_id is not null and user_id is not null;
+  on public.notifications(source_broadcast_id, user_id);
 create unique index if not exists idx_notifications_group_user_once
-  on public.notifications(delivery_group_id, user_id)
-  where delivery_group_id is not null and user_id is not null;
+  on public.notifications(delivery_group_id, user_id);
 
 grant select, insert, update, delete on public.notifications to authenticated;
 grant all on public.notifications to service_role;
