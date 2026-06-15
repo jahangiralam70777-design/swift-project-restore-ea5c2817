@@ -281,14 +281,24 @@ export function CustomExamFlow() {
           })),
         },
       });
+      // Update result + submitted together so the result view renders
+      // in the same render pass as the state flip.
       setResult(r);
       setSubmitted(true);
+      // Scroll to top so the result panel is visible immediately.
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      toast.success("Exam submitted");
     } catch (e) {
       console.error("Custom exam submit failed", e);
+      const msg = e instanceof Error ? e.message : "Could not submit exam. Please try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
+
 
   // Display stats — pre-submit shows only attempted/remaining (no correctness),
   // post-submit shows server-confirmed numbers.
