@@ -100,6 +100,39 @@ function chunks<T>(rows: T[], size = 500) {
   return out;
 }
 
+async function upsertChunkWithRetry(
+  supabaseAdmin: any,
+  table: string,
+  rows: Array<Record<string, unknown>>,
+  onConflict: string,
+  label: string,
+) {
+  if (rows.length === 0) return;
+  let lastError: { message: string } | null = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const { error } = await asAny(supabaseAdmin)
+      .from(table)
+      .upsert(rows, { onConflict, ignoreDuplicates: true });
+    if (!error) return;
+    lastError = error;
+  }
+  throw new Error(`${label} failed after retry: ${lastError?.message ?? "unknown error"}`);
+}
+
+async function countBroadcastNotifications(supabaseAdmin: any, broadcastId: string, ids: string[]) {
+  let delivered = 0;
+  for (const uidChunk of chunks(ids, 500)) {
+    const { count, error } = await asAny(supabaseAdmin)
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("source_broadcast_id", broadcastId)
+      .in("user_id", uidChunk);
+    if (error) throw new Error(`Notification delivery verification failed: ${error.message}`);
+    delivered += count ?? 0;
+  }
+  return delivered;
+}
+
 async function resolveRecipients(
   supabaseAdmin: any,
   kind: BroadcastTargetKind,
@@ -187,19 +220,36 @@ export const createBroadcast = createServerFn({ method: "POST" })
 
       const wantsInbox = data.delivery_methods.includes("inbox") || data.delivery_methods.includes("popup");
       if (wantsInbox) {
-        const { error: nErr } = await asAny(supabaseAdmin).from("notifications").insert({
+        const notificationRows = ids.map((uid) => ({
+          user_id: uid,
+          source_broadcast_id: row.id,
+          delivery_group_id: row.id,
           title: `FROM ADMIN: ${data.subject.trim()}`,
           body: data.body.trim(),
-          type: "in_app",
+          message: data.body.trim(),
+          type: "broadcast",
           priority: notificationPriority(data.priority),
           audience: "users",
-          audience_user_ids: ids,
-          status: "sent",
+          status: "unread",
           sent_at: now,
-          recipients_count: ids.length,
+          delivered_at: now,
+          recipients_count: 1,
+          delivered_count: 1,
           created_by: context.userId,
-        });
-        if (nErr) throw new Error(`Notification delivery failed: ${nErr.message}`);
+        }));
+        for (const chunk of chunks(notificationRows)) {
+          await upsertChunkWithRetry(
+            supabaseAdmin,
+            "notifications",
+            chunk,
+            "source_broadcast_id,user_id",
+            "Per-user notification fan-out",
+          );
+        }
+        const delivered = await countBroadcastNotifications(supabaseAdmin, row.id, ids);
+        if (delivered !== ids.length) {
+          throw new Error(`Notification delivery incomplete: ${delivered}/${ids.length} recipients confirmed`);
+        }
       }
 
       if (data.delivery_methods.includes("chat")) {
