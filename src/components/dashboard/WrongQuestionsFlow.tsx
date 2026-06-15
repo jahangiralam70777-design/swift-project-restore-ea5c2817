@@ -678,7 +678,7 @@ export function WrongQuestionsFlow() {
                                   )}
                                   <div className="sm:col-span-2 flex justify-end">
                                     <button
-                                      onClick={() => navigate({ to: "/mcq-practice" })}
+                                      onClick={() => startReview([m.id])}
                                       className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-white shadow-glow"
                                     >
                                       <RotateCw className="h-3.5 w-3.5" /> Retry in Practice
