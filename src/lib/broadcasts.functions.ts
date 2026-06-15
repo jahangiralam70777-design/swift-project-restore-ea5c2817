@@ -114,7 +114,7 @@ const createSchema = z.object({
   priority: z.enum(["normal", "important", "urgent"]).default("normal"),
   delivery_methods: z.array(z.enum(["inbox", "chat", "popup"])).min(1).default(["inbox"]),
   target_kind: z.enum(["all_students", "active_users", "new_users", "class", "batch", "course", "users"]),
-  target_filter: z.record(z.string(), z.unknown()).default({}),
+  target_filter: z.record(z.string(), z.any()) as unknown as z.ZodType<TargetFilter>.default({}),
 });
 
 export const createBroadcast = createServerFn({ method: "POST" })
@@ -279,7 +279,7 @@ const templateSchema = z.object({
   priority: z.enum(["normal", "important", "urgent"]).default("normal"),
   delivery_methods: z.array(z.enum(["inbox", "chat", "popup"])).default(["inbox"]),
   target_kind: z.enum(["all_students", "active_users", "new_users", "class", "batch", "course", "users"]).optional(),
-  target_filter: z.record(z.string(), z.unknown()).default({}),
+  target_filter: z.record(z.string(), z.any()) as unknown as z.ZodType<TargetFilter>.default({}),
 });
 
 export const createTemplate = createServerFn({ method: "POST" })
