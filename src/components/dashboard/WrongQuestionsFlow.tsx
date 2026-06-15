@@ -851,6 +851,122 @@ export function WrongQuestionsFlow() {
           </div>
         </aside>
       </div>
+
+      {reviewIds && reviewIds.length > 0 && (() => {
+        const cur = allItems.find((it) => it.mcq?.id === reviewIds[reviewIdx]);
+        const m = cur?.mcq;
+        const correct = cur?.correct_option ?? m?.correct_option ?? null;
+        const picked = cur?.last_chosen_option ?? null;
+        const total = reviewIds.length;
+        const isLast = reviewIdx >= total - 1;
+        return (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="glass shadow-card-soft w-full max-w-2xl rounded-3xl border border-border/60 p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Review Mode
+                  </div>
+                  <h3 className="font-display text-lg font-bold">
+                    Question {reviewIdx + 1} of {total}
+                  </h3>
+                </div>
+                <button
+                  onClick={cancelReview}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Close
+                </button>
+              </div>
+              {!m ? (
+                <div className="mt-6 text-sm text-muted-foreground">Question unavailable.</div>
+              ) : (
+                <>
+                  <p className="mt-4 text-sm font-medium">{sanitizeOptionText(m.question)}</p>
+                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {[
+                      { k: "A", t: sanitizeOptionText(m.option_a) },
+                      { k: "B", t: sanitizeOptionText(m.option_b) },
+                      { k: "C", t: sanitizeOptionText(m.option_c) },
+                      { k: "D", t: sanitizeOptionText(m.option_d) },
+                    ]
+                      .filter((o) => o.t && o.t.length > 0)
+                      .map((o) => {
+                        const isCorrect = correct === o.k;
+                        const isPicked = picked === o.k;
+                        const tone = isCorrect
+                          ? "border-emerald-400/60 bg-emerald-400/10"
+                          : isPicked
+                            ? "border-rose-400/60 bg-rose-400/10"
+                            : "border-border bg-background/40";
+                        return (
+                          <div key={o.k} className={`rounded-xl border p-3 text-sm ${tone}`}>
+                            <span className="mr-2 font-display font-bold">{o.k}.</span>
+                            {o.t}
+                            {isCorrect && (
+                              <span className="ml-2 text-[10px] font-bold text-emerald-500">
+                                CORRECT
+                              </span>
+                            )}
+                            {isPicked && !isCorrect && (
+                              <span className="ml-2 text-[10px] font-bold text-rose-500">
+                                YOUR PICK
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                  {m.explanation && (
+                    <div className="mt-3 rounded-xl border border-dashed border-border bg-background/30 p-3 text-xs text-muted-foreground">
+                      <b className="text-foreground">Explanation: </b>
+                      {m.explanation}
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="mt-6 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setReviewIdx((i) => Math.max(0, i - 1))}
+                  disabled={reviewIdx === 0 || reviewBusy}
+                  className="glass rounded-full border border-border/60 px-4 py-2 text-xs font-semibold disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                {!isLast ? (
+                  <button
+                    onClick={() => setReviewIdx((i) => Math.min(total - 1, i + 1))}
+                    disabled={reviewBusy}
+                    className="bg-cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold text-white shadow-glow"
+                  >
+                    Next <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={finishReview}
+                    disabled={reviewBusy}
+                    className="bg-cta-gradient inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold text-white shadow-glow disabled:opacity-60"
+                  >
+                    {reviewBusy ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Finishing…
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" /> Finish Review
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
