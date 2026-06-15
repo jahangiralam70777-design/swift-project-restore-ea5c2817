@@ -716,7 +716,7 @@ export const submitCustomExamAttempt = createServerFn({ method: "POST" })
       .insert({
         user_id: userId,
         quiz_id: null,
-        kind: "custom",
+        kind: "custom_exam",
         subject_id: data.subjectId ?? null,
         chapter_id:
           data.chapterIds && data.chapterIds.length === 1 ? data.chapterIds[0] : null,
