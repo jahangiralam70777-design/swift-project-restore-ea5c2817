@@ -516,7 +516,31 @@ export function McqFlow() {
     });
     recordAnswer(chosen);
     setShowExp(true);
+
+    // Per-question instant outcome sync: as soon as a wrong (or skipped)
+    // answer is submitted, push it to the wrong-questions store so the
+    // Wrong Questions page reflects it immediately, no batch-end wait,
+    // no manual refresh. Correct answers also flow through so that
+    // mastering a previously-wrong MCQ clears it in real time.
+    const mcqId = q.id;
+    void (async () => {
+      try {
+        await recordOutcomesFn({
+          data: {
+            level: level ?? null,
+            subjectId: subjectId ?? null,
+            chapterId: chapterId ?? null,
+            outcomes: [{ mcqId, chosen }],
+          },
+        });
+        qc.invalidateQueries({ queryKey: ["mcq-wrong"] });
+        qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
+      } catch (e) {
+        debugMcq("instant outcome record failed", e);
+      }
+    })();
   }
+
 
   function nextQ() {
     if (current < total - 1) {
